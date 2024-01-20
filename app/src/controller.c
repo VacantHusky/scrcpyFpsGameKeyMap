@@ -74,7 +74,6 @@ sc_controller_push_msg(struct sc_controller *controller,
             sc_cond_signal(&controller->msg_cond);
         }
     }
-    // Otherwise (if the queue is full), the msg is discarded
 
     sc_mutex_unlock(&controller->mutex);
 

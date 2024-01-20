@@ -9,8 +9,8 @@
 
 #ifdef _WIN32
 // not needed here, but winsock2.h must never be included AFTER windows.h
-# include <winsock2.h>
-# include <windows.h>
+#include <winsock2.h>
+#include <windows.h>
 #endif
 
 #include "audio_player.h"
@@ -26,10 +26,10 @@
 #include "screen.h"
 #include "server.h"
 #ifdef HAVE_USB
-# include "usb/aoa_hid.h"
-# include "usb/hid_keyboard.h"
-# include "usb/hid_mouse.h"
-# include "usb/usb.h"
+#include "usb/aoa_hid.h"
+#include "usb/hid_keyboard.h"
+#include "usb/hid_mouse.h"
+#include "usb/usb.h"
 #endif
 #include "util/acksync.h"
 #include "util/log.h"
@@ -37,10 +37,11 @@
 #include "util/rand.h"
 #include "util/timeout.h"
 #ifdef HAVE_V4L2
-# include "v4l2_sink.h"
+#include "v4l2_sink.h"
 #endif
 
-struct scrcpy {
+struct scrcpy
+{
     struct sc_server server;
     struct sc_screen screen;
     struct sc_audio_player audio_player;
@@ -56,19 +57,22 @@ struct scrcpy {
 #endif
     struct sc_controller controller;
     struct sc_file_pusher file_pusher;
+    struct sc_fpsgame_keys fpsgame_keys;
 #ifdef HAVE_USB
     struct sc_usb usb;
     struct sc_aoa aoa;
     // sequence/ack helper to synchronize clipboard and Ctrl+v via HID
     struct sc_acksync acksync;
 #endif
-    union {
+    union
+    {
         struct sc_keyboard_inject keyboard_inject;
 #ifdef HAVE_USB
         struct sc_hid_keyboard keyboard_hid;
 #endif
     };
-    union {
+    union
+    {
         struct sc_mouse_inject mouse_inject;
 #ifdef HAVE_USB
         struct sc_hid_mouse mouse_hid;
@@ -78,20 +82,24 @@ struct scrcpy {
 };
 
 static inline void
-push_event(uint32_t type, const char *name) {
+push_event(uint32_t type, const char *name)
+{
     SDL_Event event;
     event.type = type;
     int ret = SDL_PushEvent(&event);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         LOGE("Could not post %s event: %s", name, SDL_GetError());
         // What could we do?
     }
 }
-#define PUSH_EVENT(TYPE) push_event(TYPE, # TYPE)
+#define PUSH_EVENT(TYPE) push_event(TYPE, #TYPE)
 
 #ifdef _WIN32
-static BOOL WINAPI windows_ctrl_handler(DWORD ctrl_type) {
-    if (ctrl_type == CTRL_C_EVENT) {
+static BOOL WINAPI windows_ctrl_handler(DWORD ctrl_type)
+{
+    if (ctrl_type == CTRL_C_EVENT)
+    {
         PUSH_EVENT(SDL_QUIT);
         return TRUE;
     }
@@ -100,19 +108,23 @@ static BOOL WINAPI windows_ctrl_handler(DWORD ctrl_type) {
 #endif // _WIN32
 
 static void
-sdl_set_hints(const char *render_driver) {
+sdl_set_hints(const char *render_driver)
+{
 
-    if (render_driver && !SDL_SetHint(SDL_HINT_RENDER_DRIVER, render_driver)) {
+    if (render_driver && !SDL_SetHint(SDL_HINT_RENDER_DRIVER, render_driver))
+    {
         LOGW("Could not set render driver");
     }
 
     // Linear filtering
-    if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1")) {
+    if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"))
+    {
         LOGW("Could not enable linear filtering");
     }
 
     // Handle a click to gain focus as any other click
-    if (!SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1")) {
+    if (!SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1"))
+    {
         LOGW("Could not enable mouse focus clickthrough");
     }
 
@@ -120,70 +132,83 @@ sdl_set_hints(const char *render_driver) {
     // Disable synthetic mouse events from touch events
     // Touch events with id SDL_TOUCH_MOUSEID are ignored anyway, but it is
     // better not to generate them in the first place.
-    if (!SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0")) {
+    if (!SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0"))
+    {
         LOGW("Could not disable synthetic mouse events");
     }
 #endif
 
 #ifdef SCRCPY_SDL_HAS_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR
     // Disable compositor bypassing on X11
-    if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0")) {
+    if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0"))
+    {
         LOGW("Could not disable X11 compositor bypass");
     }
 #endif
 
     // Do not minimize on focus loss
-    if (!SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0")) {
+    if (!SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0"))
+    {
         LOGW("Could not disable minimize on focus loss");
     }
 }
 
 static void
-sdl_configure(bool video_playback, bool disable_screensaver) {
+sdl_configure(bool video_playback, bool disable_screensaver)
+{
 #ifdef _WIN32
     // Clean up properly on Ctrl+C on Windows
     bool ok = SetConsoleCtrlHandler(windows_ctrl_handler, TRUE);
-    if (!ok) {
+    if (!ok)
+    {
         LOGW("Could not set Ctrl+C handler");
     }
 #endif // _WIN32
 
-    if (!video_playback) {
+    if (!video_playback)
+    {
         return;
     }
 
-    if (disable_screensaver) {
+    if (disable_screensaver)
+    {
         SDL_DisableScreenSaver();
-    } else {
+    }
+    else
+    {
         SDL_EnableScreenSaver();
     }
 }
 
 static enum scrcpy_exit_code
-event_loop(struct scrcpy *s) {
+event_loop(struct scrcpy *s)
+{
     SDL_Event event;
-    while (SDL_WaitEvent(&event)) {
-        switch (event.type) {
-            case SC_EVENT_DEVICE_DISCONNECTED:
-                LOGW("Device disconnected");
-                return SCRCPY_EXIT_DISCONNECTED;
-            case SC_EVENT_DEMUXER_ERROR:
-                LOGE("Demuxer error");
+    while (SDL_WaitEvent(&event))
+    {
+        switch (event.type)
+        {
+        case SC_EVENT_DEVICE_DISCONNECTED:
+            LOGW("Device disconnected"); // 设备已断开连接
+            return SCRCPY_EXIT_DISCONNECTED;
+        case SC_EVENT_DEMUXER_ERROR:
+            LOGE("Demuxer error");
+            return SCRCPY_EXIT_FAILURE;
+        case SC_EVENT_RECORDER_ERROR:
+            LOGE("Recorder error"); // 记录器错误
+            return SCRCPY_EXIT_FAILURE;
+        case SC_EVENT_TIME_LIMIT_REACHED:
+            LOGI("Time limit reached"); // 达到时间限制
+            return SCRCPY_EXIT_SUCCESS;
+        case SDL_QUIT:
+            LOGD("User requested to quit"); // 用户请求退出
+            return SCRCPY_EXIT_SUCCESS;
+        default:
+            if (!sc_screen_handle_event(&s->screen, &event))
+            { // 屏幕事件
                 return SCRCPY_EXIT_FAILURE;
-            case SC_EVENT_RECORDER_ERROR:
-                LOGE("Recorder error");
-                return SCRCPY_EXIT_FAILURE;
-            case SC_EVENT_TIME_LIMIT_REACHED:
-                LOGI("Time limit reached");
-                return SCRCPY_EXIT_SUCCESS;
-            case SDL_QUIT:
-                LOGD("User requested to quit");
-                return SCRCPY_EXIT_SUCCESS;
-            default:
-                if (!sc_screen_handle_event(&s->screen, &event)) {
-                    return SCRCPY_EXIT_FAILURE;
-                }
-                break;
+            }
+            break;
         }
     }
     return SCRCPY_EXIT_FAILURE;
@@ -191,24 +216,29 @@ event_loop(struct scrcpy *s) {
 
 // Return true on success, false on error
 static bool
-await_for_server(bool *connected) {
+await_for_server(bool *connected)
+{
     SDL_Event event;
-    while (SDL_WaitEvent(&event)) {
-        switch (event.type) {
-            case SDL_QUIT:
-                if (connected) {
-                    *connected = false;
-                }
-                return true;
-            case SC_EVENT_SERVER_CONNECTION_FAILED:
-                return false;
-            case SC_EVENT_SERVER_CONNECTED:
-                if (connected) {
-                    *connected = true;
-                }
-                return true;
-            default:
-                break;
+    while (SDL_WaitEvent(&event))
+    {
+        switch (event.type)
+        {
+        case SDL_QUIT:
+            if (connected)
+            {
+                *connected = false;
+            }
+            return true;
+        case SC_EVENT_SERVER_CONNECTION_FAILED:
+            return false;
+        case SC_EVENT_SERVER_CONNECTED:
+            if (connected)
+            {
+                *connected = true;
+            }
+            return true;
+        default:
+            break;
         }
     }
 
@@ -218,69 +248,80 @@ await_for_server(bool *connected) {
 
 static void
 sc_recorder_on_ended(struct sc_recorder *recorder, bool success,
-                     void *userdata) {
-    (void) recorder;
-    (void) userdata;
+                     void *userdata)
+{
+    (void)recorder;
+    (void)userdata;
 
-    if (!success) {
+    if (!success)
+    {
         PUSH_EVENT(SC_EVENT_RECORDER_ERROR);
     }
 }
 
 static void
 sc_video_demuxer_on_ended(struct sc_demuxer *demuxer,
-                          enum sc_demuxer_status status, void *userdata) {
-    (void) demuxer;
-    (void) userdata;
+                          enum sc_demuxer_status status, void *userdata)
+{
+    (void)demuxer;
+    (void)userdata;
 
     // The device may not decide to disable the video
     assert(status != SC_DEMUXER_STATUS_DISABLED);
 
-    if (status == SC_DEMUXER_STATUS_EOS) {
+    if (status == SC_DEMUXER_STATUS_EOS)
+    {
         PUSH_EVENT(SC_EVENT_DEVICE_DISCONNECTED);
-    } else {
+    }
+    else
+    {
         PUSH_EVENT(SC_EVENT_DEMUXER_ERROR);
     }
 }
 
 static void
 sc_audio_demuxer_on_ended(struct sc_demuxer *demuxer,
-                          enum sc_demuxer_status status, void *userdata) {
-    (void) demuxer;
+                          enum sc_demuxer_status status, void *userdata)
+{
+    (void)demuxer;
 
     const struct scrcpy_options *options = userdata;
 
     // Contrary to the video demuxer, keep mirroring if only the audio fails
     // (unless --require-audio is set).
-    if (status == SC_DEMUXER_STATUS_EOS) {
+    if (status == SC_DEMUXER_STATUS_EOS)
+    {
         PUSH_EVENT(SC_EVENT_DEVICE_DISCONNECTED);
-    } else if (status == SC_DEMUXER_STATUS_ERROR
-            || (status == SC_DEMUXER_STATUS_DISABLED
-                && options->require_audio)) {
+    }
+    else if (status == SC_DEMUXER_STATUS_ERROR || (status == SC_DEMUXER_STATUS_DISABLED && options->require_audio))
+    {
         PUSH_EVENT(SC_EVENT_DEMUXER_ERROR);
     }
 }
 
 static void
-sc_server_on_connection_failed(struct sc_server *server, void *userdata) {
-    (void) server;
-    (void) userdata;
+sc_server_on_connection_failed(struct sc_server *server, void *userdata)
+{
+    (void)server;
+    (void)userdata;
 
     PUSH_EVENT(SC_EVENT_SERVER_CONNECTION_FAILED);
 }
 
 static void
-sc_server_on_connected(struct sc_server *server, void *userdata) {
-    (void) server;
-    (void) userdata;
+sc_server_on_connected(struct sc_server *server, void *userdata)
+{
+    (void)server;
+    (void)userdata;
 
     PUSH_EVENT(SC_EVENT_SERVER_CONNECTED);
 }
 
 static void
-sc_server_on_disconnected(struct sc_server *server, void *userdata) {
-    (void) server;
-    (void) userdata;
+sc_server_on_disconnected(struct sc_server *server, void *userdata)
+{
+    (void)server;
+    (void)userdata;
 
     LOGD("Server disconnected");
     // Do nothing, the disconnection will be handled by the "stream stopped"
@@ -288,29 +329,356 @@ sc_server_on_disconnected(struct sc_server *server, void *userdata) {
 }
 
 static void
-sc_timeout_on_timeout(struct sc_timeout *timeout, void *userdata) {
-    (void) timeout;
-    (void) userdata;
+sc_timeout_on_timeout(struct sc_timeout *timeout, void *userdata)
+{
+    (void)timeout;
+    (void)userdata;
 
     PUSH_EVENT(SC_EVENT_TIME_LIMIT_REACHED);
 }
 
 // Generate a scrcpy id to differentiate multiple running scrcpy instances
 static uint32_t
-scrcpy_generate_scid(void) {
+scrcpy_generate_scid(void)
+{
     struct sc_rand rand;
     sc_rand_init(&rand);
     // Only use 31 bits to avoid issues with signed values on the Java-side
     return sc_rand_u32(&rand) & 0x7FFFFFFF;
 }
 
+static int
+load_fpsgame_config(struct sc_fpsgame_keys *sfk)
+{
+    FILE *file = fopen("fps_game_config.txt", "r");
+    if (file == NULL)
+    {
+        LOGI("Error opening fps_game_config.txt");
+        return 1;
+    }
+
+    char line[100];
+
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+        char key[50], value[50];
+        if (sscanf(line, "%49[^:]: %49s", key, value) == 2)
+        {
+            printf(">>%s==%s<<\n", key, value);
+
+            if (!strcmp(key, "pointX"))
+            {
+                sfk->pointX = atof(value);
+            }
+            else if (!strcmp(key, "pointY"))
+            {
+                sfk->pointY = atof(value);
+            }
+            else if (!strcmp(key, "speedRatioX"))
+            {
+                sfk->speedRatioX = atof(value);
+            }
+            else if (!strcmp(key, "speedRatioY"))
+            {
+                sfk->speedRatioY = atof(value);
+            }
+            else if (!strcmp(key, "wheelCenterposX"))
+            {
+                sfk->wheelCenterposX = atof(value);
+            }
+            else if (!strcmp(key, "wheelCenterposY"))
+            {
+                sfk->wheelCenterposY = atof(value);
+            }
+            else if (!strcmp(key, "wheelLeftOffset"))
+            {
+                sfk->wheelLeftOffset = atof(value);
+            }
+            else if (!strcmp(key, "wheelRightOffset"))
+            {
+                sfk->wheelRightOffset = atof(value);
+            }
+            else if (!strcmp(key, "wheelUpOffset"))
+            {
+                sfk->wheelUpOffset = atof(value);
+            }
+            else if (!strcmp(key, "wheeldownOffset"))
+            {
+                sfk->wheeldownOffset = atof(value);
+            }
+            else if (!strcmp(key, "leftProbeX"))
+            {
+                sfk->leftProbeX = atof(value);
+            }
+            else if (!strcmp(key, "leftProbeY"))
+            {
+                sfk->leftProbeY = atof(value);
+            }
+            else if (!strcmp(key, "rightProbeX"))
+            {
+                sfk->rightProbeX = atof(value);
+            }
+            else if (!strcmp(key, "rightProbeY"))
+            {
+                sfk->rightProbeY = atof(value);
+            }
+            else if (!strcmp(key, "autoRunX"))
+            {
+                sfk->autoRunX = atof(value);
+            }
+            else if (!strcmp(key, "autoRunY"))
+            {
+                sfk->autoRunY = atof(value);
+            }
+            else if (!strcmp(key, "jumpX"))
+            {
+                sfk->jumpX = atof(value);
+            }
+            else if (!strcmp(key, "jumpY"))
+            {
+                sfk->jumpY = atof(value);
+            }
+            else if (!strcmp(key, "mapX"))
+            {
+                sfk->mapX = atof(value);
+            }
+            else if (!strcmp(key, "mapY"))
+            {
+                sfk->mapY = atof(value);
+            }
+            else if (!strcmp(key, "knapsackX"))
+            {
+                sfk->knapsackX = atof(value);
+            }
+            else if (!strcmp(key, "knapsackY"))
+            {
+                sfk->knapsackY = atof(value);
+            }
+            else if (!strcmp(key, "dropX"))
+            {
+                sfk->dropX = atof(value);
+            }
+            else if (!strcmp(key, "dropY"))
+            {
+                sfk->dropY = atof(value);
+            }
+            else if (!strcmp(key, "squatX"))
+            {
+                sfk->squatX = atof(value);
+            }
+            else if (!strcmp(key, "squatY"))
+            {
+                sfk->squatY = atof(value);
+            }
+            else if (!strcmp(key, "reloadX"))
+            {
+                sfk->reloadX = atof(value);
+            }
+            else if (!strcmp(key, "reloadY"))
+            {
+                sfk->reloadY = atof(value);
+            }
+            else if (!strcmp(key, "pickup1X"))
+            {
+                sfk->pickup1X = atof(value);
+            }
+            else if (!strcmp(key, "pickup1Y"))
+            {
+                sfk->pickup1Y = atof(value);
+            }
+            else if (!strcmp(key, "pickup2X"))
+            {
+                sfk->pickup2X = atof(value);
+            }
+            else if (!strcmp(key, "pickup2Y"))
+            {
+                sfk->pickup2Y = atof(value);
+            }
+            else if (!strcmp(key, "pickup3X"))
+            {
+                sfk->pickup3X = atof(value);
+            }
+            else if (!strcmp(key, "pickup3Y"))
+            {
+                sfk->pickup3Y = atof(value);
+            }
+            else if (!strcmp(key, "switchGun1X"))
+            {
+                sfk->switchGun1X = atof(value);
+            }
+            else if (!strcmp(key, "switchGun1Y"))
+            {
+                sfk->switchGun1Y = atof(value);
+            }
+            else if (!strcmp(key, "switchGun2X"))
+            {
+                sfk->switchGun2X = atof(value);
+            }
+            else if (!strcmp(key, "switchGun2Y"))
+            {
+                sfk->switchGun2Y = atof(value);
+            }
+            else if (!strcmp(key, "fragX"))
+            {
+                sfk->fragX = atof(value);
+            }
+            else if (!strcmp(key, "fragY"))
+            {
+                sfk->fragY = atof(value);
+            }
+            else if (!strcmp(key, "medicineX"))
+            {
+                sfk->medicineX = atof(value);
+            }
+            else if (!strcmp(key, "medicineY"))
+            {
+                sfk->medicineY = atof(value);
+            }
+            else if (!strcmp(key, "getOffCarX"))
+            {
+                sfk->getOffCarX = atof(value);
+            }
+            else if (!strcmp(key, "getOffCarY"))
+            {
+                sfk->getOffCarY = atof(value);
+            }
+            else if (!strcmp(key, "getOnCarX"))
+            {
+                sfk->getOnCarX = atof(value);
+            }
+            else if (!strcmp(key, "getOnCarY"))
+            {
+                sfk->getOnCarY = atof(value);
+            }
+            else if (!strcmp(key, "helpX"))
+            {
+                sfk->helpX = atof(value);
+            }
+            else if (!strcmp(key, "helpY"))
+            {
+                sfk->helpY = atof(value);
+            }
+            else if (!strcmp(key, "openDoorX"))
+            {
+                sfk->openDoorX = atof(value);
+            }
+            else if (!strcmp(key, "openDoorY"))
+            {
+                sfk->openDoorY = atof(value);
+            }
+            else if (!strcmp(key, "lickBagX"))
+            {
+                sfk->lickBagX = atof(value);
+            }
+            else if (!strcmp(key, "lickBagY"))
+            {
+                sfk->lickBagY = atof(value);
+            }
+            else if (!strcmp(key, "fireX"))
+            {
+                sfk->fireX = atof(value);
+            }
+            else if (!strcmp(key, "fireY"))
+            {
+                sfk->fireY = atof(value);
+            }
+            else if (!strcmp(key, "openMirrorX"))
+            {
+                sfk->openMirrorX = atof(value);
+            }
+            else if (!strcmp(key, "openMirrorY"))
+            {
+                sfk->openMirrorY = atof(value);
+            }
+            else if (!strcmp(key, "punctuationX"))
+            {
+                sfk->punctuationX = atof(value);
+            }
+            else if (!strcmp(key, "punctuationY"))
+            {
+                sfk->punctuationY = atof(value);
+            }
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
+static void
+init_fpsgame_keys(struct sc_fpsgame_keys *sfk)
+{
+    sfk->pointX = 0.55; // 初始视角点
+    sfk->pointY = 0.4;
+    sfk->speedRatioX = 0.00025; // 鼠标速度
+    sfk->speedRatioY = 0.0006;
+    sfk->wheelCenterposX = 0.20;  // 方向轮盘中心点
+    sfk->wheelCenterposY = 0.75;
+    sfk->wheelLeftOffset = 0.1;  // 上下左右滑动的距离
+    sfk->wheelRightOffset = 0.1;
+    sfk->wheelUpOffset = 0.24;
+    sfk->wheeldownOffset = 0.2;
+    sfk->leftProbeX = 0.145; // 左右探头
+    sfk->leftProbeY = 0.364;
+    sfk->rightProbeX = 0.21;
+    sfk->rightProbeY = 0.364;
+    sfk->autoRunX = 0.84; // 自动跑
+    sfk->autoRunY = 0.26;
+    sfk->jumpX = 0.94; // 跳
+    sfk->jumpY = 0.7;
+    sfk->mapX = 0.95; // 地图
+    sfk->mapY = 0.03;
+    sfk->knapsackX = 0.09; // 背包
+    sfk->knapsackY = 0.9;
+    sfk->dropX = 0.91; // 趴
+    sfk->dropY = 0.9;
+    sfk->squatX = 0.84; // 蹲
+    sfk->squatY = 0.93;
+    sfk->reloadX = 0.76; // 装弹
+    sfk->reloadY = 0.93;
+    sfk->pickup1X = 0.7; // 拾取1
+    sfk->pickup1Y = 0.34;
+    sfk->pickup2X = 0.7; // 拾取2
+    sfk->pickup2Y = 0.44;
+    sfk->pickup3X = 0.7; // 拾取3
+    sfk->pickup3Y = 0.54;
+    sfk->switchGun1X = 0.45; // 换枪1
+    sfk->switchGun1Y = 0.9;
+    sfk->switchGun2X = 0.55; // 换枪2
+    sfk->switchGun2Y = 0.9;
+    sfk->fragX = 0.65; // 手雷
+    sfk->fragY = 0.92;
+    sfk->medicineX = 0.35; // 打药
+    sfk->medicineY = 0.95;
+    sfk->getOffCarX = 0.92; //  下车
+    sfk->getOffCarY = 0.4;
+    sfk->getOnCarX = 0.7; //  上车
+    sfk->getOnCarY = 0.54;
+    sfk->helpX = 0.49; //  救人
+    sfk->helpY = 0.63;
+    sfk->openDoorX = 0.7; //  开门
+    sfk->openDoorY = 0.7;
+    sfk->lickBagX = 0.7; //  舔包
+    sfk->lickBagY = 0.25;
+    sfk->fireX = 0.86; //  开火
+    sfk->fireY = 0.72;
+    sfk->openMirrorX = 0.94; //  开镜
+    sfk->openMirrorY = 0.52;
+    sfk->punctuationX = 0.888; //  万能标点
+    sfk->punctuationY = 0.338;
+
+    load_fpsgame_config(sfk);
+}
+
 enum scrcpy_exit_code
-scrcpy(struct scrcpy_options *options) {
+scrcpy(struct scrcpy_options *options)
+{
     static struct scrcpy scrcpy;
     struct scrcpy *s = &scrcpy;
 
     // Minimal SDL initialization
-    if (SDL_Init(SDL_INIT_EVENTS)) {
+    if (SDL_Init(SDL_INIT_EVENTS))
+    {
         LOGE("Could not initialize SDL: %s", SDL_GetError());
         return SCRCPY_EXIT_FAILURE;
     }
@@ -395,17 +763,20 @@ scrcpy(struct scrcpy_options *options) {
         .on_connected = sc_server_on_connected,
         .on_disconnected = sc_server_on_disconnected,
     };
-    if (!sc_server_init(&s->server, &params, &cbs, NULL)) {
+    if (!sc_server_init(&s->server, &params, &cbs, NULL))
+    {
         return SCRCPY_EXIT_FAILURE;
     }
 
-    if (!sc_server_start(&s->server)) {
+    if (!sc_server_start(&s->server))
+    {
         goto end;
     }
 
     server_started = true;
 
-    if (options->list) {
+    if (options->list)
+    {
         bool ok = await_for_server(NULL);
         ret = ok ? SCRCPY_EXIT_SUCCESS : SCRCPY_EXIT_FAILURE;
         goto end;
@@ -415,29 +786,37 @@ scrcpy(struct scrcpy_options *options) {
     assert(!options->video_playback || options->video);
     assert(!options->audio_playback || options->audio);
 
-    if (options->video_playback) {
+    if (options->video_playback)
+    {
         sdl_set_hints(options->render_driver);
     }
 
     if (options->video_playback ||
-            (options->control && options->clipboard_autosync)) {
+        (options->control && options->clipboard_autosync))
+    {
         // Initialize the video subsystem even if --no-video or
         // --no-video-playback is passed so that clipboard synchronization
         // still works.
         // <https://github.com/Genymobile/scrcpy/issues/4418>
-        if (SDL_Init(SDL_INIT_VIDEO)) {
+        if (SDL_Init(SDL_INIT_VIDEO))
+        {
             // If it fails, it is an error only if video playback is enabled
-            if (options->video_playback) {
+            if (options->video_playback)
+            {
                 LOGE("Could not initialize SDL video: %s", SDL_GetError());
                 goto end;
-            } else {
+            }
+            else
+            {
                 LOGW("Could not initialize SDL video: %s", SDL_GetError());
             }
         }
     }
 
-    if (options->audio_playback) {
-        if (SDL_Init(SDL_INIT_AUDIO)) {
+    if (options->audio_playback)
+    {
+        if (SDL_Init(SDL_INIT_AUDIO))
+        {
             LOGE("Could not initialize SDL audio: %s", SDL_GetError());
             goto end;
         }
@@ -447,12 +826,14 @@ scrcpy(struct scrcpy_options *options) {
 
     // Await for server without blocking Ctrl+C handling
     bool connected;
-    if (!await_for_server(&connected)) {
+    if (!await_for_server(&connected))
+    {
         LOGE("Server connection failed");
         goto end;
     }
 
-    if (!connected) {
+    if (!connected)
+    {
         // This is not an error, user requested to quit
         LOGD("User requested to quit");
         ret = SCRCPY_EXIT_SUCCESS;
@@ -469,16 +850,19 @@ scrcpy(struct scrcpy_options *options) {
 
     struct sc_file_pusher *fp = NULL;
 
-    if (options->video_playback && options->control) {
+    if (options->video_playback && options->control)
+    {
         if (!sc_file_pusher_init(&s->file_pusher, serial,
-                                 options->push_target)) {
+                                 options->push_target))
+        {
             goto end;
         }
         fp = &s->file_pusher;
         file_pusher_initialized = true;
     }
 
-    if (options->video) {
+    if (options->video)
+    {
         static const struct sc_demuxer_callbacks video_demuxer_cbs = {
             .on_ended = sc_video_demuxer_on_ended,
         };
@@ -486,7 +870,8 @@ scrcpy(struct scrcpy_options *options) {
                         &video_demuxer_cbs, NULL);
     }
 
-    if (options->audio) {
+    if (options->audio)
+    {
         static const struct sc_demuxer_callbacks audio_demuxer_cbs = {
             .on_ended = sc_audio_demuxer_on_ended,
         };
@@ -499,39 +884,46 @@ scrcpy(struct scrcpy_options *options) {
 #ifdef HAVE_V4L2
     needs_video_decoder |= !!options->v4l2_device;
 #endif
-    if (needs_video_decoder) {
+    if (needs_video_decoder)
+    {
         sc_decoder_init(&s->video_decoder, "video");
         sc_packet_source_add_sink(&s->video_demuxer.packet_source,
                                   &s->video_decoder.packet_sink);
     }
-    if (needs_audio_decoder) {
+    if (needs_audio_decoder)
+    {
         sc_decoder_init(&s->audio_decoder, "audio");
         sc_packet_source_add_sink(&s->audio_demuxer.packet_source,
                                   &s->audio_decoder.packet_sink);
     }
 
-    if (options->record_filename) {
+    if (options->record_filename)
+    {
         static const struct sc_recorder_callbacks recorder_cbs = {
             .on_ended = sc_recorder_on_ended,
         };
         if (!sc_recorder_init(&s->recorder, options->record_filename,
                               options->record_format, options->video,
                               options->audio, options->record_orientation,
-                              &recorder_cbs, NULL)) {
+                              &recorder_cbs, NULL))
+        {
             goto end;
         }
         recorder_initialized = true;
 
-        if (!sc_recorder_start(&s->recorder)) {
+        if (!sc_recorder_start(&s->recorder))
+        {
             goto end;
         }
         recorder_started = true;
 
-        if (options->video) {
+        if (options->video)
+        {
             sc_packet_source_add_sink(&s->video_demuxer.packet_source,
                                       &s->recorder.video_packet_sink);
         }
-        if (options->audio) {
+        if (options->audio)
+        {
             sc_packet_source_add_sink(&s->audio_demuxer.packet_source,
                                       &s->recorder.audio_packet_sink);
         }
@@ -541,20 +933,24 @@ scrcpy(struct scrcpy_options *options) {
     struct sc_key_processor *kp = NULL;
     struct sc_mouse_processor *mp = NULL;
 
-    if (options->control) {
+    if (options->control)
+    {
 #ifdef HAVE_USB
         bool use_hid_keyboard =
             options->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_HID;
         bool use_hid_mouse =
             options->mouse_input_mode == SC_MOUSE_INPUT_MODE_HID;
-        if (use_hid_keyboard || use_hid_mouse) {
+        if (use_hid_keyboard || use_hid_mouse)
+        {
             bool ok = sc_acksync_init(&s->acksync);
-            if (!ok) {
+            if (!ok)
+            {
                 goto end;
             }
 
             ok = sc_usb_init(&s->usb);
-            if (!ok) {
+            if (!ok)
+            {
                 LOGE("Failed to initialize USB");
                 sc_acksync_destroy(&s->acksync);
                 goto aoa_hid_end;
@@ -563,7 +959,8 @@ scrcpy(struct scrcpy_options *options) {
             assert(serial);
             struct sc_usb_device usb_device;
             ok = sc_usb_select_device(&s->usb, serial, &usb_device);
-            if (!ok) {
+            if (!ok)
+            {
                 sc_usb_destroy(&s->usb);
                 goto aoa_hid_end;
             }
@@ -574,7 +971,8 @@ scrcpy(struct scrcpy_options *options) {
 
             ok = sc_usb_connect(&s->usb, usb_device.device, NULL, NULL);
             sc_usb_device_destroy(&usb_device);
-            if (!ok) {
+            if (!ok)
+            {
                 LOGE("Failed to connect to USB device %s", serial);
                 sc_usb_destroy(&s->usb);
                 sc_acksync_destroy(&s->acksync);
@@ -582,7 +980,8 @@ scrcpy(struct scrcpy_options *options) {
             }
 
             ok = sc_aoa_init(&s->aoa, &s->usb, &s->acksync);
-            if (!ok) {
+            if (!ok)
+            {
                 LOGE("Failed to enable HID over AOA");
                 sc_usb_disconnect(&s->usb);
                 sc_usb_destroy(&s->usb);
@@ -590,27 +989,36 @@ scrcpy(struct scrcpy_options *options) {
                 goto aoa_hid_end;
             }
 
-            if (use_hid_keyboard) {
-                if (sc_hid_keyboard_init(&s->keyboard_hid, &s->aoa)) {
+            if (use_hid_keyboard)
+            {
+                if (sc_hid_keyboard_init(&s->keyboard_hid, &s->aoa))
+                {
                     hid_keyboard_initialized = true;
                     kp = &s->keyboard_hid.key_processor;
-                } else {
+                }
+                else
+                {
                     LOGE("Could not initialize HID keyboard");
                 }
             }
 
-            if (use_hid_mouse) {
-                if (sc_hid_mouse_init(&s->mouse_hid, &s->aoa)) {
+            if (use_hid_mouse)
+            {
+                if (sc_hid_mouse_init(&s->mouse_hid, &s->aoa))
+                {
                     hid_mouse_initialized = true;
                     mp = &s->mouse_hid.mouse_processor;
-                } else {
+                }
+                else
+                {
                     LOGE("Could not initialized HID mouse");
                 }
             }
 
             bool need_aoa = hid_keyboard_initialized || hid_mouse_initialized;
 
-            if (!need_aoa || !sc_aoa_start(&s->aoa)) {
+            if (!need_aoa || !sc_aoa_start(&s->aoa))
+            {
                 sc_acksync_destroy(&s->acksync);
                 sc_usb_disconnect(&s->usb);
                 sc_usb_destroy(&s->usb);
@@ -622,25 +1030,30 @@ scrcpy(struct scrcpy_options *options) {
 
             aoa_hid_initialized = true;
 
-aoa_hid_end:
-            if (!aoa_hid_initialized) {
-                if (hid_keyboard_initialized) {
+        aoa_hid_end:
+            if (!aoa_hid_initialized)
+            {
+                if (hid_keyboard_initialized)
+                {
                     sc_hid_keyboard_destroy(&s->keyboard_hid);
                     hid_keyboard_initialized = false;
                 }
-                if (hid_mouse_initialized) {
+                if (hid_mouse_initialized)
+                {
                     sc_hid_mouse_destroy(&s->mouse_hid);
                     hid_mouse_initialized = false;
                 }
             }
 
-            if (use_hid_keyboard && !hid_keyboard_initialized) {
+            if (use_hid_keyboard && !hid_keyboard_initialized)
+            {
                 LOGE("Fallback to default keyboard injection method "
                      "(-K/--hid-keyboard ignored)");
                 options->keyboard_input_mode = SC_KEYBOARD_INPUT_MODE_INJECT;
             }
 
-            if (use_hid_mouse && !hid_mouse_initialized) {
+            if (use_hid_mouse && !hid_mouse_initialized)
+            {
                 LOGE("Fallback to default mouse injection method "
                      "(-M/--hid-mouse ignored)");
                 options->mouse_input_mode = SC_MOUSE_INPUT_MODE_INJECT;
@@ -652,7 +1065,8 @@ aoa_hid_end:
 #endif
 
         // keyboard_input_mode may have been reset if HID mode failed
-        if (options->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_INJECT) {
+        if (options->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_INJECT)
+        {
             sc_keyboard_inject_init(&s->keyboard_inject, &s->controller,
                                     options->key_inject_mode,
                                     options->forward_key_repeat);
@@ -660,18 +1074,21 @@ aoa_hid_end:
         }
 
         // mouse_input_mode may have been reset if HID mode failed
-        if (options->mouse_input_mode == SC_MOUSE_INPUT_MODE_INJECT) {
+        if (options->mouse_input_mode == SC_MOUSE_INPUT_MODE_INJECT)
+        {
             sc_mouse_inject_init(&s->mouse_inject, &s->controller);
             mp = &s->mouse_inject.mouse_processor;
         }
 
         if (!sc_controller_init(&s->controller, s->server.control_socket,
-                                acksync)) {
+                                acksync))
+        {
             goto end;
         }
         controller_initialized = true;
 
-        if (!sc_controller_start(&s->controller)) {
+        if (!sc_controller_start(&s->controller))
+        {
             goto end;
         }
         controller_started = true;
@@ -681,9 +1098,13 @@ aoa_hid_end:
     // There is a controller if and only if control is enabled
     assert(options->control == !!controller);
 
-    if (options->video_playback) {
+    if (options->video_playback)
+    {
         const char *window_title =
             options->window_title ? options->window_title : info->device_name;
+
+        struct sc_fpsgame_keys *fpsgame_keys = &(s->fpsgame_keys);
+        init_fpsgame_keys(fpsgame_keys);
 
         struct sc_screen_params screen_params = {
             .controller = controller,
@@ -705,17 +1126,20 @@ aoa_hid_end:
             .mipmaps = options->mipmaps,
             .fullscreen = options->fullscreen,
             .start_fps_counter = options->start_fps_counter,
+            .fpsgame_keys = fpsgame_keys,
         };
 
         struct sc_frame_source *src = &s->video_decoder.frame_source;
-        if (options->display_buffer) {
+        if (options->display_buffer)
+        {
             sc_delay_buffer_init(&s->display_buffer, options->display_buffer,
                                  true);
             sc_frame_source_add_sink(src, &s->display_buffer.frame_sink);
             src = &s->display_buffer.frame_source;
         }
 
-        if (!sc_screen_init(&s->screen, &screen_params)) {
+        if (!sc_screen_init(&s->screen, &screen_params))
+        {
             goto end;
         }
         screen_initialized = true;
@@ -723,7 +1147,8 @@ aoa_hid_end:
         sc_frame_source_add_sink(src, &s->screen.frame_sink);
     }
 
-    if (options->audio_playback) {
+    if (options->audio_playback)
+    {
         sc_audio_player_init(&s->audio_player, options->audio_buffer,
                              options->audio_output_buffer);
         sc_frame_source_add_sink(&s->audio_decoder.frame_source,
@@ -731,13 +1156,16 @@ aoa_hid_end:
     }
 
 #ifdef HAVE_V4L2
-    if (options->v4l2_device) {
-        if (!sc_v4l2_sink_init(&s->v4l2_sink, options->v4l2_device)) {
+    if (options->v4l2_device)
+    {
+        if (!sc_v4l2_sink_init(&s->v4l2_sink, options->v4l2_device))
+        {
             goto end;
         }
 
         struct sc_frame_source *src = &s->video_decoder.frame_source;
-        if (options->v4l2_buffer) {
+        if (options->v4l2_buffer)
+        {
             sc_delay_buffer_init(&s->v4l2_buffer, options->v4l2_buffer, true);
             sc_frame_source_add_sink(src, &s->v4l2_buffer.frame_sink);
             src = &s->v4l2_buffer.frame_source;
@@ -752,15 +1180,19 @@ aoa_hid_end:
     // Now that the header values have been consumed, the socket(s) will
     // receive the stream(s). Start the demuxer(s).
 
-    if (options->video) {
-        if (!sc_demuxer_start(&s->video_demuxer)) {
+    if (options->video)
+    {
+        if (!sc_demuxer_start(&s->video_demuxer))
+        {
             goto end;
         }
         video_demuxer_started = true;
     }
 
-    if (options->audio) {
-        if (!sc_demuxer_start(&s->audio_demuxer)) {
+    if (options->audio)
+    {
+        if (!sc_demuxer_start(&s->audio_demuxer))
+        {
             goto end;
         }
         audio_demuxer_started = true;
@@ -768,19 +1200,23 @@ aoa_hid_end:
 
     // If the device screen is to be turned off, send the control message after
     // everything is set up
-    if (options->control && options->turn_screen_off) {
+    if (options->control && options->turn_screen_off)
+    {
         struct sc_control_msg msg;
         msg.type = SC_CONTROL_MSG_TYPE_SET_SCREEN_POWER_MODE;
         msg.set_screen_power_mode.mode = SC_SCREEN_POWER_MODE_OFF;
 
-        if (!sc_controller_push_msg(&s->controller, &msg)) {
+        if (!sc_controller_push_msg(&s->controller, &msg))
+        {
             LOGW("Could not request 'set screen power mode'");
         }
     }
 
-    if (options->time_limit) {
+    if (options->time_limit)
+    {
         bool ok = sc_timeout_init(&s->timeout);
-        if (!ok) {
+        if (!ok)
+        {
             goto end;
         }
 
@@ -792,7 +1228,8 @@ aoa_hid_end:
         };
 
         ok = sc_timeout_start(&s->timeout, deadline, &cbs, NULL);
-        if (!ok) {
+        if (!ok)
+        {
             goto end;
         }
 
@@ -807,70 +1244,86 @@ aoa_hid_end:
     sc_screen_hide_window(&s->screen);
 
 end:
-    if (timeout_started) {
+    if (timeout_started)
+    {
         sc_timeout_stop(&s->timeout);
     }
 
     // The demuxer is not stopped explicitly, because it will stop by itself on
     // end-of-stream
 #ifdef HAVE_USB
-    if (aoa_hid_initialized) {
-        if (hid_keyboard_initialized) {
+    if (aoa_hid_initialized)
+    {
+        if (hid_keyboard_initialized)
+        {
             sc_hid_keyboard_destroy(&s->keyboard_hid);
         }
-        if (hid_mouse_initialized) {
+        if (hid_mouse_initialized)
+        {
             sc_hid_mouse_destroy(&s->mouse_hid);
         }
         sc_aoa_stop(&s->aoa);
         sc_usb_stop(&s->usb);
     }
-    if (acksync) {
+    if (acksync)
+    {
         sc_acksync_destroy(acksync);
     }
 #endif
-    if (controller_started) {
+    if (controller_started)
+    {
         sc_controller_stop(&s->controller);
     }
-    if (file_pusher_initialized) {
+    if (file_pusher_initialized)
+    {
         sc_file_pusher_stop(&s->file_pusher);
     }
-    if (recorder_initialized) {
+    if (recorder_initialized)
+    {
         sc_recorder_stop(&s->recorder);
     }
-    if (screen_initialized) {
+    if (screen_initialized)
+    {
         sc_screen_interrupt(&s->screen);
     }
 
-    if (server_started) {
+    if (server_started)
+    {
         // shutdown the sockets and kill the server
         sc_server_stop(&s->server);
     }
 
-    if (timeout_started) {
+    if (timeout_started)
+    {
         sc_timeout_join(&s->timeout);
     }
-    if (timeout_initialized) {
+    if (timeout_initialized)
+    {
         sc_timeout_destroy(&s->timeout);
     }
 
     // now that the sockets are shutdown, the demuxer and controller are
     // interrupted, we can join them
-    if (video_demuxer_started) {
+    if (video_demuxer_started)
+    {
         sc_demuxer_join(&s->video_demuxer);
     }
 
-    if (audio_demuxer_started) {
+    if (audio_demuxer_started)
+    {
         sc_demuxer_join(&s->audio_demuxer);
     }
 
 #ifdef HAVE_V4L2
-    if (v4l2_sink_initialized) {
+    if (v4l2_sink_initialized)
+    {
         sc_v4l2_sink_destroy(&s->v4l2_sink);
     }
 #endif
 
 #ifdef HAVE_USB
-    if (aoa_hid_initialized) {
+    if (aoa_hid_initialized)
+    {
         sc_aoa_join(&s->aoa);
         sc_aoa_destroy(&s->aoa);
         sc_usb_join(&s->usb);
@@ -882,31 +1335,38 @@ end:
     // Destroy the screen only after the video demuxer is guaranteed to be
     // finished, because otherwise the screen could receive new frames after
     // destruction
-    if (screen_initialized) {
+    if (screen_initialized)
+    {
         sc_screen_join(&s->screen);
         sc_screen_destroy(&s->screen);
     }
 
-    if (controller_started) {
+    if (controller_started)
+    {
         sc_controller_join(&s->controller);
     }
-    if (controller_initialized) {
+    if (controller_initialized)
+    {
         sc_controller_destroy(&s->controller);
     }
 
-    if (recorder_started) {
+    if (recorder_started)
+    {
         sc_recorder_join(&s->recorder);
     }
-    if (recorder_initialized) {
+    if (recorder_initialized)
+    {
         sc_recorder_destroy(&s->recorder);
     }
 
-    if (file_pusher_initialized) {
+    if (file_pusher_initialized)
+    {
         sc_file_pusher_join(&s->file_pusher);
         sc_file_pusher_destroy(&s->file_pusher);
     }
 
-    if (server_started) {
+    if (server_started)
+    {
         sc_server_join(&s->server);
     }
 

@@ -432,6 +432,7 @@ sc_screen_init(struct sc_screen *screen,
         .legacy_paste = params->legacy_paste,
         .clipboard_autosync = params->clipboard_autosync,
         .shortcut_mods = params->shortcut_mods,
+        .fpsgame_keys = params->fpsgame_keys,
     };
 
     sc_input_manager_init(&screen->im, &im_params);
@@ -715,12 +716,15 @@ sc_screen_resize_to_pixel_perfect(struct sc_screen *screen) {
 
 static inline bool
 sc_screen_is_mouse_capture_key(SDL_Keycode key) {
-    return key == SDLK_LALT || key == SDLK_LGUI || key == SDLK_RGUI;
+    // 将`键设为切换键
+    return key == SDLK_BACKQUOTE || key == SDLK_LGUI || key == SDLK_RGUI;
 }
 
 bool
 sc_screen_handle_event(struct sc_screen *screen, const SDL_Event *event) {
-    bool relative_mode = sc_screen_is_relative_mode(screen);
+    // bool relative_mode = sc_screen_is_relative_mode(screen);
+    bool relative_mode = true;
+    bool mouse_capture = sc_screen_get_mouse_capture(screen);
 
     switch (event->type) {
         case SC_EVENT_SCREEN_INIT_SIZE: {
@@ -772,7 +776,8 @@ sc_screen_handle_event(struct sc_screen *screen, const SDL_Event *event) {
                     apply_pending_resize(screen);
                     sc_screen_render(screen, true);
                     break;
-                case SDL_WINDOWEVENT_FOCUS_LOST:
+                case SDL_WINDOWEVENT_FOCUS_LOST:  // 焦点丢失
+                    LOGI("EVENT SDL_WINDOWEVENT_FOCUS_LOST");
                     if (relative_mode) {
                         sc_screen_set_mouse_capture(screen, false);
                     }
@@ -782,15 +787,12 @@ sc_screen_handle_event(struct sc_screen *screen, const SDL_Event *event) {
         case SDL_KEYDOWN:
             if (relative_mode) {
                 SDL_Keycode key = event->key.keysym.sym;
-                if (sc_screen_is_mouse_capture_key(key)) {
+                if (sc_screen_is_mouse_capture_key(key)) {  // 按下了鼠标切换键
                     if (!screen->mouse_capture_key_pressed) {
                         screen->mouse_capture_key_pressed = key;
                     } else {
-                        // Another mouse capture key has been pressed, cancel
-                        // mouse (un)capture
                         screen->mouse_capture_key_pressed = 0;
                     }
-                    // Mouse capture keys are never forwarded to the device
                     return true;
                 }
             }
@@ -802,42 +804,51 @@ sc_screen_handle_event(struct sc_screen *screen, const SDL_Event *event) {
                 screen->mouse_capture_key_pressed = 0;
                 if (sc_screen_is_mouse_capture_key(key)) {
                     if (key == cap) {
-                        // A mouse capture key has been pressed then released:
-                        // toggle the capture mouse mode
+                        // 切换鼠标
                         sc_screen_toggle_mouse_capture(screen);
+                        struct sc_fpsgame_keys *sfk = screen->im.fpsgame_keys;
+                        if (mouse_capture) {
+                            sc_input_manager_send_touch_event(&screen->im, sfk->pointX, sfk->pointY, SDL_FINGERUP, 2);
+                        } else {
+                            sfk->pointX = 0.55, sfk->pointY = 0.4;
+                            sc_input_manager_send_touch_event(&screen->im, sfk->pointX, sfk->pointY, SDL_FINGERDOWN, 2);
+                        }
                     }
-                    // Mouse capture keys are never forwarded to the device
                     return true;
                 }
             }
             break;
         case SDL_MOUSEWHEEL:
         case SDL_MOUSEMOTION:
+            // if (!mouse_capture) {
+            //     // 如果鼠标不在里面，就不处理
+            //     return true;
+            // }
+            break;
         case SDL_MOUSEBUTTONDOWN:
-            if (relative_mode && !sc_screen_get_mouse_capture(screen)) {
-                // Do not forward to input manager, the mouse will be captured
-                // on SDL_MOUSEBUTTONUP
-                return true;
-            }
+            // if (relative_mode && !sc_screen_get_mouse_capture(screen)) {
+            //     // 如果鼠标不在里面，就不处理
+            //     return true;
+            // }
+            break;
+        case SDL_MOUSEBUTTONUP:
+            // if (relative_mode && !sc_screen_get_mouse_capture(screen)) {
+            //     // sc_screen_set_mouse_capture(screen, true);
+            //     return true;
+            // }
             break;
         case SDL_FINGERMOTION:
         case SDL_FINGERDOWN:
         case SDL_FINGERUP:
             if (relative_mode) {
-                // Touch events are not compatible with relative mode
-                // (coordinates are not relative)
+                // 触摸屏？
                 return true;
             }
-            break;
-        case SDL_MOUSEBUTTONUP:
-            if (relative_mode && !sc_screen_get_mouse_capture(screen)) {
-                sc_screen_set_mouse_capture(screen, true);
-                return true;
-            }
+            return true;  // 懒得管触摸屏
             break;
     }
 
-    sc_input_manager_handle_event(&screen->im, event);
+    sc_input_manager_handle_event(&screen->im, event, mouse_capture);
     return true;
 }
 

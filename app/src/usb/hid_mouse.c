@@ -254,6 +254,7 @@ sc_hid_mouse_init(struct sc_hid_mouse *mouse, struct sc_aoa *aoa) {
     mouse->mouse_processor.ops = &ops;
 
     mouse->mouse_processor.relative_mode = true;
+    LOGI("set relative_mode true");
 
     return true;
 }

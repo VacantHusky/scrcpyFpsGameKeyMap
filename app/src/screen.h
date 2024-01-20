@@ -59,8 +59,7 @@ struct sc_screen {
     bool maximized;
     bool minimized;
 
-    // To enable/disable mouse capture, a mouse capture key (LALT, LGUI or
-    // RGUI) must be pressed. This variable tracks the pressed capture key.
+    // 此变量跟踪按下的捕获键。
     SDL_Keycode mouse_capture_key_pressed;
 
     AVFrame *frame;
@@ -71,6 +70,7 @@ struct sc_screen_params {
     struct sc_file_pusher *fp;
     struct sc_key_processor *kp;
     struct sc_mouse_processor *mp;
+    struct sc_fpsgame_keys *fpsgame_keys;
 
     bool forward_all_clicks;
     bool legacy_paste;
@@ -140,8 +140,7 @@ sc_screen_set_orientation(struct sc_screen *screen,
 bool
 sc_screen_handle_event(struct sc_screen *screen, const SDL_Event *event);
 
-// convert point from window coordinates to frame coordinates
-// x and y are expressed in pixels
+// 将点从窗口坐标转换为帧坐标x和y以像素表示
 struct sc_point
 sc_screen_convert_window_to_frame_coords(struct sc_screen *screen,
                                         int32_t x, int32_t y);
