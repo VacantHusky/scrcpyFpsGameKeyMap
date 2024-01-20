@@ -1,149 +1,95 @@
-**This GitHub repo (<https://github.com/Genymobile/scrcpy>) is the only official
-source for the project. Do not download releases from random websites, even if
-their name contains `scrcpy`.**
+本仓库复刻自(<https://github.com/Genymobile/scrcpy>)。
 
-# scrcpy (v2.3.1)
+在其原有基础上添加了按键映射。
 
-<img src="app/data/icon.svg" width="128" height="128" alt="scrcpy" align="right" />
+对于基础功能，参见源仓库。
 
-_pronounced "**scr**een **c**o**py**"_
+# 1. 使用
 
-This application mirrors Android devices (video and audio) connected via
-USB or [over TCP/IP](doc/connection.md#tcpip-wireless), and allows to control the
-device with the keyboard and the mouse of the computer. It does not require any
-_root_ access. It works on _Linux_, _Windows_ and _macOS_.
+从[发行版](https://github.com/VacantHusky/scrcpyFpsGameKeyMap/releases/tag/What)下载对应系统的构建文件。
 
-![screenshot](assets/screenshot-debian-600.jpg)
+在`fps_game_config.txt`中编辑按键坐标，其坐标值应在[0, 1]。
 
-It focuses on:
+在该目录，按住Shift，右键，在终端打开，输入命令运行。
 
- - **lightness**: native, displays only the device screen
- - **performance**: 30~120fps, depending on the device
- - **quality**: 1920×1080 or above
- - **low latency**: [35~70ms][lowlatency]
- - **low startup time**: ~1 second to display the first image
- - **non-intrusiveness**: nothing is left installed on the Android device
- - **user benefits**: no account, no ads, no internet required
- - **freedom**: free and open source software
+若使用usb连接手机，则输入命令：
+```shell
+./scrcpy -d --no-key-repeat -m 1280
+```
 
-[lowlatency]: https://github.com/Genymobile/scrcpy/pull/646
+若使用无线连接，则输入：
+```shell
+./scrcpy -d --tcpip=你手机的ip:端口 --no-key-repeat -m 1280
+# 例如
+./scrcpy --tcpip=192.168.5.102:5555 --no-key-repeat -m 1280
+```
 
-Its features include:
- - [audio forwarding](doc/audio.md) (Android 11+)
- - [recording](doc/recording.md)
- - mirroring with [Android device screen off](doc/device.md#turn-screen-off)
- - [copy-paste](doc/control.md#copy-paste) in both directions
- - [configurable quality](doc/video.md)
- - [camera mirroring](doc/camera.md) (Android 12+)
- - [mirroring as a webcam (V4L2)](doc/v4l2.md) (Linux-only)
- - [physical keyboard/mouse simulation (HID)](doc/hid-otg.md)
- - [OTG mode](doc/hid-otg.md#otg)
- - and more…
-
-## Prerequisites
-
-The Android device requires at least API 21 (Android 5.0).
-
-[Audio forwarding](doc/audio.md) is supported for API >= 30 (Android 11+).
-
-Make sure you [enabled USB debugging][enable-adb] on your device(s).
-
-[enable-adb]: https://developer.android.com/studio/debug/dev-options#enable
-
-On some devices, you also need to enable [an additional option][control] `USB
-debugging (Security Settings)` (this is an item different from `USB debugging`)
-to control it using a keyboard and mouse. Rebooting the device is necessary once
-this option is set.
-
-[control]: https://github.com/Genymobile/scrcpy/issues/70#issuecomment-373286323
-
-Note that USB debugging is not required to run scrcpy in [OTG
-mode](doc/hid-otg.md#otg).
+若你的手机还未开启无线连接，可以先使用usb连接，然后输入以下命令开启无线连接：
+```shell
+adb tcpip 5555 
+```
 
 
-## Get the app
+`fps_game_config.txt`中的按键解释如下：
 
- - [Linux](doc/linux.md)
- - [Windows](doc/windows.md)
- - [macOS](doc/macos.md)
+```
+pointX = 0.55; // 初始视角点
+pointY = 0.4;
+speedRatioX = 0.00025; // 鼠标速度
+speedRatioY = 0.0006;
+wheelCenterposX = 0.20;  // 方向轮盘中心点
+wheelCenterposY = 0.75;
+wheelLeftOffset = 0.1;  // 上下左右滑动的距离
+wheelRightOffset = 0.1;
+wheelUpOffset = 0.24;
+wheeldownOffset = 0.2;
+leftProbeX = 0.145; // 左右探头
+leftProbeY = 0.364;
+rightProbeX = 0.21;
+rightProbeY = 0.364;
+autoRunX = 0.84; // 自动跑
+autoRunY = 0.26;
+jumpX = 0.94; // 跳
+jumpY = 0.7;
+mapX = 0.95; // 地图
+mapY = 0.03;
+knapsackX = 0.09; // 背包
+knapsackY = 0.9;
+dropX = 0.91; // 趴
+dropY = 0.9;
+squatX = 0.84; // 蹲
+squatY = 0.93;
+reloadX = 0.76; // 装弹
+reloadY = 0.93;
+pickup1X = 0.7; // 拾取1
+pickup1Y = 0.34;
+pickup2X = 0.7; // 拾取2
+pickup2Y = 0.44;
+pickup3X = 0.7; // 拾取3
+pickup3Y = 0.54;
+switchGun1X = 0.45; // 换枪1
+switchGun1Y = 0.9;
+switchGun2X = 0.55; // 换枪2
+switchGun2Y = 0.9;
+fragX = 0.65; // 手雷
+fragY = 0.92;
+medicineX = 0.35; // 打药
+medicineY = 0.95;
+getOffCarX = 0.92; //  下车
+getOffCarY = 0.4;
+getOnCarX = 0.7; //  上车
+getOnCarY = 0.54;
+helpX = 0.49; //  救人
+helpY = 0.63;
+openDoorX = 0.7; //  开门
+openDoorY = 0.7;
+lickBagX = 0.7; //  舔包
+lickBagY = 0.25;
+fireX = 0.86; //  开火
+fireY = 0.72;
+openMirrorX = 0.94; //  开镜
+openMirrorY = 0.52;
+punctuationX = 0.888; //  万能标点
+punctuationY = 0.338;
 
-
-## User documentation
-
-The application provides a lot of features and configuration options. They are
-documented in the following pages:
-
- - [Connection](doc/connection.md)
- - [Video](doc/video.md)
- - [Audio](doc/audio.md)
- - [Control](doc/control.md)
- - [Device](doc/device.md)
- - [Window](doc/window.md)
- - [Recording](doc/recording.md)
- - [Tunnels](doc/tunnels.md)
- - [HID/OTG](doc/hid-otg.md)
- - [Camera](doc/camera.md)
- - [Video4Linux](doc/v4l2.md)
- - [Shortcuts](doc/shortcuts.md)
-
-
-## Resources
-
- - [FAQ](FAQ.md)
- - [Translations][wiki] (not necessarily up to date)
- - [Build instructions](doc/build.md)
- - [Developers](doc/develop.md)
-
-[wiki]: https://github.com/Genymobile/scrcpy/wiki
-
-
-## Articles
-
-- [Introducing scrcpy][article-intro]
-- [Scrcpy now works wirelessly][article-tcpip]
-- [Scrcpy 2.0, with audio][article-scrcpy2]
-
-[article-intro]: https://blog.rom1v.com/2018/03/introducing-scrcpy/
-[article-tcpip]: https://www.genymotion.com/blog/open-source-project-scrcpy-now-works-wirelessly/
-[article-scrcpy2]: https://blog.rom1v.com/2023/03/scrcpy-2-0-with-audio/
-
-## Contact
-
-If you encounter a bug, please read the [FAQ](FAQ.md) first, then open an [issue].
-
-[issue]: https://github.com/Genymobile/scrcpy/issues
-
-For general questions or discussions, you can also use:
-
- - Reddit: [`r/scrcpy`](https://www.reddit.com/r/scrcpy)
- - Twitter: [`@scrcpy_app`](https://twitter.com/scrcpy_app)
-
-
-## Donate
-
-I'm [@rom1v](https://github.com/rom1v), the author and maintainer of _scrcpy_.
-
-If you appreciate this application, you can [support my open source
-work][donate]:
- - [GitHub Sponsors](https://github.com/sponsors/rom1v)
- - [Liberapay](https://liberapay.com/rom1v/)
- - [PayPal](https://paypal.me/rom2v)
-
-[donate]: https://blog.rom1v.com/about/#support-my-open-source-work
-
-## Licence
-
-    Copyright (C) 2018 Genymobile
-    Copyright (C) 2018-2023 Romain Vimont
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+```
